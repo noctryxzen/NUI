@@ -205,7 +205,7 @@ getgenv().SendNotification = newcclosure(function(Opts)
 	if type(Opts) ~= "table" then return end
 	if type(Opts.Title) ~= "string" then return end
 	if type(Opts.Text) ~= "string" then return end
-	if #_ >= 3 then
+	if #_ >= 4 then
 		table.insert(__, function()
 			getgenv().SendNotification(Opts)
 		end)
