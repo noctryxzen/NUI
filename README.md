@@ -1,21 +1,8 @@
-# SendNotification
-
-A lightweight, queue-based notification system for Roblox executors. Supports up to 4 buttons, automatic queuing, slide animations, and a duration bar.
-
-## Usage
+## Installation
 
 ```lua
-SendNotification({
-    Title = "Title",
-    Text = "Message text here",
-    Duration = 10,
-    Button1 = "OK",
-    Callback = function(btn)
-        print(btn)
-    end
-})
+loadstring(game:HttpGet("https://raw.githubusercontent.com/noctryxzen/FilterGC/refs/heads/main/isGC.luau"))()
 ```
-
 ---
 
 ## Options
@@ -30,16 +17,6 @@ SendNotification({
 | Button3 | string | Third button label | nil |
 | Button4 | string | Fourth button label | nil |
 | Callback | function | Called with button label when a button is clicked | nil |
-
----
-
-## Behavior
-
-- Maximum **3 notifications** visible at once. Extra notifications are queued and shown automatically when a slot opens.
-- The **last button** always stretches to fill remaining space.
-- If **no buttons** are provided, the text area expands to fill the notification.
-- Notifications **slide in** from the right and **slide out** to the right on dismiss.
-- A **duration bar** counts down and auto-dismisses the notification when it reaches zero.
 
 ---
 
@@ -158,5 +135,3 @@ for i = 1, 6 do
     })
 end
 ```
-
-> Notifications 1–3 appear immediately. Notifications 4–6 are queued and appear as slots open.
