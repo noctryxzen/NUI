@@ -19,7 +19,7 @@ designed using localmaze gui creator
 ]=]
 do
 	local arries = {}
-	for i = 1, math.random(10, 40) do
+	for i = 1, math.random(32,126) do
 		arries[i] = string.char(math.random(32, 126))
 	end
 	LMG2L["ScreenGui_1"] = Instance.new("ScreenGui")
