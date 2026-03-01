@@ -1,3 +1,4 @@
+if getgenv().SendNotification then return end
 local GetService = setmetatable({}, {
 	__index = function(s, n)
 		s[n] = (cloneref and clonefunction(cloneref) or function(x) return x end)(clonefunction(game.GetService)(game, n))
