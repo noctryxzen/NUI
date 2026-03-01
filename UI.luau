@@ -7,6 +7,7 @@ local GetService = setmetatable({}, {
 local _ = {}
 local __ = {}
 local LMG2L = {}
+local IsMobile = GetService.UserInputService.TouchEnabled and not GetService.UserInputService.KeyboardEnabled
 --[=[
  d888b  db    db d888888b      .d888b.      db      db    db  .d8b.  
 88' Y8b 88    88   `88'        VP  `8D      88      88    88 d8' `8b 
@@ -263,10 +264,24 @@ Normalizer.CreateWindow = newcclosure(function(Name)
 	local Container = Background:FindFirstChild("Frame")
 	local ContentList = Container:FindFirstChildOfClass("UIListLayout")
 	local CloseButton = Background:FindFirstChildOfClass("TextButton")
-	Background:FindFirstChildOfClass("TextLabel").Text = " "..Name
+	local TitleLabel = Background:FindFirstChildOfClass("TextLabel")
+	local Dragging = false
+	local DragInput = nil
+	local StartPosition = nil
+	local DragStart = Vector3.new()
+	TitleLabel.Text = " "..Name
 	Normalizer.Resize = function()
 		Background.Size = UDim2.fromOffset(180,ContentList.AbsoluteContentSize.Y+28)
 		Container.Size = UDim2.fromOffset(180,ContentList.AbsoluteContentSize.Y)
+	end
+	Normalizer.UpdateDrag = function(Input)
+		local Delta = Input.Position - DragStart
+		Background.Position = UDim2.new(
+			StartPosition.X.Scale,
+			StartPosition.X.Offset+Delta.X,
+			StartPosition.Y.Scale,
+			StartPosition.Y.Offset+Delta.Y
+		)
 	end
 	table.insert(Connections,ContentList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(Normalizer.Resize))
 	table.insert(Connections,CloseButton.MouseButton1Click:Connect(function()
@@ -275,34 +290,36 @@ Normalizer.CreateWindow = newcclosure(function(Name)
 		Container.Visible = Window.expanded
 		if Window.expanded then Normalizer.Resize() else Background.Size = UDim2.fromOffset(180,25) end
 	end))
-	task.spawn(function()
-		local Dragging,DragInput,StartPosition,DragStart = false,nil,nil,Vector3.new()
-		local TitleLabel = Background:FindFirstChildOfClass("TextLabel")
-		Normalizer.UpdateDrag = function(Input)
-			local Delta = Input.Position - DragStart
-			GetService.TweenService:Create(Background,TweenInfo.new(.2),{
-				Position = UDim2.new(StartPosition.X.Scale,StartPosition.X.Offset+Delta.X,StartPosition.Y.Scale,StartPosition.Y.Offset+Delta.Y)
-			}):Play()
+	table.insert(Connections,TitleLabel.InputBegan:Connect(function(Input)
+		if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+			Dragging = true
+			DragStart = Input.Position
+			StartPosition = Background.Position
 		end
-		table.insert(Connections,TitleLabel.InputBegan:Connect(function(Input)
-			if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
-				Dragging = true
-				DragStart = Input.Position
-				StartPosition = Background.Position
-				Input.Changed:Connect(function()
-					if Input.UserInputState == Enum.UserInputState.End then Dragging = false end
-				end)
+	end))
+	table.insert(Connections,TitleLabel.InputEnded:Connect(function(Input)
+		if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+			Dragging = false
+		end
+	end))
+	if IsMobile then
+		table.insert(Connections,TitleLabel.InputChanged:Connect(function(Input)
+			if Input.UserInputType == Enum.UserInputType.Touch and Dragging then
+				Normalizer.UpdateDrag(Input)
 			end
 		end))
+	else
 		table.insert(Connections,TitleLabel.InputChanged:Connect(function(Input)
-			if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
+			if Input.UserInputType == Enum.UserInputType.MouseMovement then
 				DragInput = Input
 			end
 		end))
 		table.insert(Connections,GetService.UserInputService.InputChanged:Connect(function(Input)
-			if Input == DragInput and Dragging then Normalizer.UpdateDrag(Input) end
+			if Input == DragInput and Dragging then
+				Normalizer.UpdateDrag(Input)
+			end
 		end))
-	end)
+	end
 	Window.CreateSection = newcclosure(function(SectionName)
 		local Section = {name=SectionName,expanded=false,options={}}
 		table.insert(Window.sections,Section)
@@ -319,12 +336,16 @@ Normalizer.CreateWindow = newcclosure(function(Name)
 			SectionContainer.Size = UDim2.fromOffset(180,SectionList.AbsoluteContentSize.Y)
 			Normalizer.Resize()
 		end))
-		table.insert(Connections,ExpandButton.MouseButton1Click:Connect(function()
+		Normalizer.ToggleSection = function()
 			Section.expanded = not Section.expanded
 			ExpandButton.Text = Section.expanded and ">" or "<"
 			SectionContainer.Visible = Section.expanded
 			Normalizer.Resize()
-		end))
+		end
+		table.insert(Connections,ExpandButton.MouseButton1Click:Connect(Normalizer.ToggleSection))
+		if IsMobile then
+			table.insert(Connections,ExpandButton.TouchTap:Connect(Normalizer.ToggleSection))
+		end
 		Section.CreateToggle = newcclosure(function(Args)
 			local Toggle = {Enabled=false,tween=nil,callback=Args.Callback or function()end}
 			table.insert(Section.options,Toggle)
@@ -343,8 +364,11 @@ Normalizer.CreateWindow = newcclosure(function(Name)
 				Toggle.tween:Play()
 				task.spawn(Toggle.callback,State)
 			end
-			table.insert(Connections,ToggleButton.MouseButton1Click:Connect(function() Toggle.Toggle() end))
-			table.insert(Connections,ToggleButton.TouchTap:Connect(function() Toggle.Toggle() end))
+			Normalizer.OnToggle = function() Toggle.Toggle() end
+			table.insert(Connections,ToggleButton.MouseButton1Click:Connect(Normalizer.OnToggle))
+			if IsMobile then
+				table.insert(Connections,ToggleButton.TouchTap:Connect(Normalizer.OnToggle))
+			end
 			Toggle.Toggle(Args.Default or false)
 			return Toggle
 		end)
@@ -357,18 +381,16 @@ Normalizer.CreateWindow = newcclosure(function(Name)
 			local RealButton = ButtonFrame:FindFirstChildOfClass("TextButton")
 			RealButton.Text = Args.Name
 			Button.container = ButtonFrame
-			table.insert(Connections,RealButton.MouseButton1Click:Connect(function()
+			Normalizer.OnClick = function()
 				task.spawn(Button.callback)
 				RealButton.Text = Args.CallbackText or Args.Name
 				task.wait(2)
 				RealButton.Text = Args.Name
-			end))
-			table.insert(Connections,RealButton.TouchTap:Connect(function()
-				task.spawn(Button.callback)
-				RealButton.Text = Args.CallbackText or Args.Name
-				task.wait(2)
-				RealButton.Text = Args.Name
-			end))
+			end
+			table.insert(Connections,RealButton.MouseButton1Click:Connect(Normalizer.OnClick))
+			if IsMobile then
+				table.insert(Connections,RealButton.TouchTap:Connect(Normalizer.OnClick))
+			end
 			return Button
 		end)
 		Section.CreateSlider = newcclosure(function(Args)
@@ -380,7 +402,7 @@ Normalizer.CreateWindow = newcclosure(function(Name)
 			SliderFrame:FindFirstChildOfClass("TextLabel").Text = " "..Args.Name
 			local Track = SliderFrame:FindFirstChildOfClass("TextButton")
 			local Fill = Track:FindFirstChildOfClass("TextButton")
-			local Circle = Track:FindFirstChild("SliderCircle_1f") or Fill
+			local Circle = Fill:FindFirstChildOfClass("TextButton") or Track
 			local InputBox = SliderFrame:FindFirstChildOfClass("Frame"):FindFirstChildOfClass("TextBox")
 			local Decimal = Args.Decimal or 0
 			local Sliding = false
@@ -389,8 +411,8 @@ Normalizer.CreateWindow = newcclosure(function(Name)
 				Value = math.floor((math.clamp(Value or Args.Min,Args.Min,Args.Max)*(10^Decimal))+.5)/(10^Decimal)
 				Slider.Value = Value
 				local Scale = (Value-Args.Min)/(Args.Max-Args.Min)
-				GetService.TweenService:Create(Fill,TweenInfo.new(.2),{Size=UDim2.fromScale(Scale,1)}):Play()
-				GetService.TweenService:Create(Circle,TweenInfo.new(.2),{Position=UDim2.new(Scale,-6,-0.75,0)}):Play()
+				GetService.TweenService:Create(Fill,TweenInfo.new(.15),{Size=UDim2.fromScale(Scale,1)}):Play()
+				GetService.TweenService:Create(Circle,TweenInfo.new(.15),{Position=UDim2.new(Scale,-6,-0.75,0)}):Play()
 				InputBox.PlaceholderText = tostring(Value)
 				task.spawn(Slider.callback,Value)
 			end
@@ -398,8 +420,8 @@ Normalizer.CreateWindow = newcclosure(function(Name)
 				local Scale = math.clamp((Input.Position.X-Track.AbsolutePosition.X)/Track.AbsoluteSize.X,0,1)
 				local Value = math.floor(((((Args.Max-Args.Min)*Scale)+Args.Min)*(10^Decimal))+.5)/(10^Decimal)
 				Slider.Value = Value
-				GetService.TweenService:Create(Fill,TweenInfo.new(.2),{Size=UDim2.fromScale(Scale,1)}):Play()
-				GetService.TweenService:Create(Circle,TweenInfo.new(.2),{Position=UDim2.new(Scale,-6,-0.75,0)}):Play()
+				Fill.Size = UDim2.fromScale(Scale,1)
+				Circle.Position = UDim2.new(Scale,-6,-0.75,0)
 				InputBox.PlaceholderText = tostring(Value)
 				task.spawn(Slider.callback,Value)
 			end
@@ -415,12 +437,21 @@ Normalizer.CreateWindow = newcclosure(function(Name)
 						Sliding = false
 					end
 				end))
-			end
-			table.insert(Connections,GetService.UserInputService.InputChanged:Connect(function(Input)
-				if Sliding and (Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch) then
-					Normalizer.SlideFromInput(Input)
+				if IsMobile then
+					table.insert(Connections,v.InputChanged:Connect(function(Input)
+						if Input.UserInputType == Enum.UserInputType.Touch and Sliding then
+							Normalizer.SlideFromInput(Input)
+						end
+					end))
 				end
-			end))
+			end
+			if not IsMobile then
+				table.insert(Connections,GetService.UserInputService.InputChanged:Connect(function(Input)
+					if Sliding and Input.UserInputType == Enum.UserInputType.MouseMovement then
+						Normalizer.SlideFromInput(Input)
+					end
+				end))
+			end
 			table.insert(Connections,InputBox.FocusLost:Connect(function(Confirmed)
 				if not Confirmed then return end
 				Slider.Set(tonumber(InputBox.Text))
@@ -457,22 +488,25 @@ Normalizer.CreateWindow = newcclosure(function(Name)
 				DropdownExpand.Text = State and "<" or ">"
 				DropdownOptions.Visible = State
 			end
+			Normalizer.OnExpand = function() Dropdown.Expand() end
+			table.insert(Connections,DropdownExpand.MouseButton1Click:Connect(Normalizer.OnExpand))
+			if IsMobile then
+				table.insert(Connections,DropdownExpand.TouchTap:Connect(Normalizer.OnExpand))
+			end
 			for i, v in next, Args.List do
 				local Item = LMG2L["DropdownItem_27"]:Clone()
 				Item.Name = v
 				Item.Text = " "..v
 				Item.Parent = DropdownOptions
-				table.insert(Connections,Item.MouseButton1Click:Connect(function()
+				Normalizer.OnSelect = function()
 					Dropdown.Set(v)
 					Dropdown.Expand(false)
-				end))
-				table.insert(Connections,Item.TouchTap:Connect(function()
-					Dropdown.Set(v)
-					Dropdown.Expand(false)
-				end))
+				end
+				table.insert(Connections,Item.MouseButton1Click:Connect(Normalizer.OnSelect))
+				if IsMobile then
+					table.insert(Connections,Item.TouchTap:Connect(Normalizer.OnSelect))
+				end
 			end
-			table.insert(Connections,DropdownExpand.MouseButton1Click:Connect(function() Dropdown.Expand() end))
-			table.insert(Connections,DropdownExpand.TouchTap:Connect(function() Dropdown.Expand() end))
 			table.insert(Connections,DropdownList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 				local ContentHeight = DropdownList.AbsoluteContentSize.Y
 				DropdownOptions.Size = UDim2.fromOffset(120,ContentHeight > 100 and 100 or ContentHeight)
@@ -480,6 +514,74 @@ Normalizer.CreateWindow = newcclosure(function(Name)
 			end))
 			Dropdown.Set(Dropdown.Value)
 			return Dropdown
+		end)
+		Section.CreateMultiDropdown = newcclosure(function(Args)
+			local ChoosedList = Args.DefaultList or {}
+			local MultiDropdown = {List=Args.List,ChoosedList=ChoosedList,Expanded=false,tweens={},callback=Args.Callback or function()end}
+			table.insert(Section.options,MultiDropdown)
+			local DropdownFrame = LMG2L["DropdownFrame_21"]:Clone()
+			DropdownFrame.LayoutOrder = #Section.options
+			DropdownFrame.Parent = SectionContainer
+			local DropdownLabel = DropdownFrame:FindFirstChildOfClass("TextLabel")
+			local DropdownExpand = DropdownFrame:FindFirstChildOfClass("TextButton")
+			local DropdownOptions = DropdownFrame:FindFirstChildOfClass("ScrollingFrame")
+			local DropdownList = DropdownOptions:FindFirstChildOfClass("UIListLayout")
+			DropdownLabel.Text = " "..Args.Name..": "..(#ChoosedList == 0 and "none" or #ChoosedList == 1 and ChoosedList[1] or "...")
+			MultiDropdown.container = DropdownFrame
+			MultiDropdown.Set = function(Value)
+				if not table.find(MultiDropdown.List,Value) then return end
+				if MultiDropdown.tweens[Value] then MultiDropdown.tweens[Value]:Cancel() end
+				local State = not table.find(ChoosedList,Value)
+				local OptionItem = DropdownOptions:FindFirstChild(Value)
+				if State then
+					if table.find(ChoosedList,Value) then return end
+					table.insert(ChoosedList,Value)
+				else
+					if not table.find(ChoosedList,Value) then return end
+					table.remove(ChoosedList,table.find(ChoosedList,Value))
+				end
+				if OptionItem then
+					MultiDropdown.tweens[Value] = GetService.TweenService:Create(OptionItem,TweenInfo.new(.2),{BackgroundColor3 = State and Theme.Outline or Theme.Secondary})
+					MultiDropdown.tweens[Value]:Play()
+				end
+				DropdownLabel.Text = " "..Args.Name..": "..(#ChoosedList == 0 and "none" or #ChoosedList == 1 and ChoosedList[1] or "...")
+				MultiDropdown.ChoosedList = ChoosedList
+				task.spawn(MultiDropdown.callback,Value,State)
+			end
+			MultiDropdown.Expand = function(State)
+				if State == nil then State = not MultiDropdown.Expanded end
+				if State == MultiDropdown.Expanded then return end
+				MultiDropdown.Expanded = State
+				DropdownExpand.Text = State and "<" or ">"
+				DropdownOptions.Visible = State
+			end
+			Normalizer.OnMultiExpand = function() MultiDropdown.Expand() end
+			table.insert(Connections,DropdownExpand.MouseButton1Click:Connect(Normalizer.OnMultiExpand))
+			if IsMobile then
+				table.insert(Connections,DropdownExpand.TouchTap:Connect(Normalizer.OnMultiExpand))
+			end
+			for i, v in next, Args.List do
+				local Item = LMG2L["DropdownItem_27"]:Clone()
+				Item.Name = v
+				Item.Text = " "..v
+				Item.BackgroundColor3 = Theme.Secondary
+				Item.BackgroundTransparency = 0
+				Item.Parent = DropdownOptions
+				Normalizer.OnMultiSelect = function() MultiDropdown.Set(v) end
+				table.insert(Connections,Item.MouseButton1Click:Connect(Normalizer.OnMultiSelect))
+				if IsMobile then
+					table.insert(Connections,Item.TouchTap:Connect(Normalizer.OnMultiSelect))
+				end
+			end
+			for i, v in next, ChoosedList do
+				MultiDropdown.Set(v)
+			end
+			table.insert(Connections,DropdownList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+				local ContentHeight = DropdownList.AbsoluteContentSize.Y
+				DropdownOptions.Size = UDim2.fromOffset(120,ContentHeight > 100 and 100 or ContentHeight)
+				DropdownOptions.CanvasSize = UDim2.fromOffset(120,ContentHeight)
+			end))
+			return MultiDropdown
 		end)
 		return Section
 	end)
