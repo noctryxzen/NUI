@@ -4,10 +4,10 @@ local GetService = setmetatable({}, {
 		return s[n]
 	end
 })
-local _ = {}
-local __ = {}
-local LMG2L = {}
 local IsMobile = GetService.UserInputService.TouchEnabled and not GetService.UserInputService.KeyboardEnabled
+local LMG2L = {}
+local Windows = {}
+local Connections = {}
 --[=[
  d888b  db    db d888888b      .d888b.      db      db    db  .d8b.  
 88' Y8b 88    88   `88'        VP  `8D      88      88    88 d8' `8b 
@@ -44,8 +44,6 @@ Theme.MainText = Color3.fromRGB(255,255,255)
 Theme.SubText = Color3.fromRGB(231,231,231)
 Theme.ButtonText = Color3.fromRGB(0,0,0)
 Theme.Font = Enum.Font.Cartoon
-local Windows = {}
-local Connections = {}
 LMG2L["WindowTemplate_1"] = Instance.new("Frame")
 LMG2L["WindowTemplate_1"].BorderSizePixel = 0
 LMG2L["WindowTemplate_1"].BackgroundColor3 = Theme.Third
@@ -325,10 +323,10 @@ Normalizer.CreateWindow = newcclosure(function(Name)
 		table.insert(Window.sections,Section)
 		local SectionFrame = LMG2L["SectionLabel_8"]:Clone()
 		SectionFrame.Text = " "..SectionName
-		SectionFrame.LayoutOrder = #Window.sections
+		SectionFrame.LayoutOrder = #Window.sections * 2 - 1
 		SectionFrame.Parent = Container
 		local SectionContainer = LMG2L["SectionContainer_a"]:Clone()
-		SectionContainer.LayoutOrder = #Window.sections
+		SectionContainer.LayoutOrder = #Window.sections * 2
 		SectionContainer.Parent = Container
 		local SectionList = SectionContainer:FindFirstChildOfClass("UIListLayout")
 		local ExpandButton = SectionFrame:FindFirstChildOfClass("TextButton")
@@ -402,7 +400,7 @@ Normalizer.CreateWindow = newcclosure(function(Name)
 			SliderFrame:FindFirstChildOfClass("TextLabel").Text = " "..Args.Name
 			local Track = SliderFrame:FindFirstChildOfClass("TextButton")
 			local Fill = Track:FindFirstChildOfClass("TextButton")
-			local Circle = Fill:FindFirstChildOfClass("TextButton") or Track
+			local Circle = Track:FindFirstChild("SliderCircle_1f")
 			local InputBox = SliderFrame:FindFirstChildOfClass("Frame"):FindFirstChildOfClass("TextBox")
 			local Decimal = Args.Decimal or 0
 			local Sliding = false
